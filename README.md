@@ -1,2 +1,0 @@
-# discord-misc
-Misc Discord
