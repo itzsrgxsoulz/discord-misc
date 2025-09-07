@@ -1,0 +1,13 @@
+#serverfinder
+find(motorush)
+as server.joinable
+path.robloxstorage
+localstorage.container
+download.file(https://discord.com/special/misc/serverfinder)
+#winopen 
+open serverfinder.misc
+openwith github.repository/discord-misc
+githubfile="Serverfinder"
+local fileservice(OPEN)
+Game.RobloxService.MotoRush
+online.connectaccount
