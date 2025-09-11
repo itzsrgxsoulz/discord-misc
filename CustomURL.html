@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Custom URL Builder</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#6ee7b7; --muted:#9aa7b2;
+      --glass: rgba(255,255,255,0.03);
+      font-family: Inter, Arial, sans-serif;
+    }
+    body{
+      background: linear-gradient(180deg,#071029 0%, #07121a 100%);
+      color: #e6eef0;
+      padding: 28px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;
+      padding:20px;
+      width:100%;
+      max-width:760px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    h1{margin:0 0 10px 0; font-size:20px}
+    label{display:block; margin-top:12px; font-size:13px; color:var(--muted)}
+    input[type="text"], textarea, select{
+      width:100%;
+      padding:10px 12px;
+      margin-top:6px;
+      border-radius:8px;
+      background:var(--glass);
+      color:inherit;
+      border:1px solid rgba(255,255,255,0.03);
+      outline:none;
+      box-sizing:border-box;
+    }
+    .row{display:flex; gap:12px}
+    .row > *{flex:1}
+    .controls{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap}
+    button{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.06);
+      padding:8px 12px;
+      border-radius:8px;
+      color:inherit;
+      cursor:pointer;
+      backdrop-filter: blur(4px);
+    }
+    button.primary{
+      background:linear-gradient(90deg, rgba(110,231,183,0.12), rgba(110,231,183,0.06));
+      border-color: rgba(110,231,183,0.2);
+    }
+    .preview{
+      margin-top:14px;
+      padding:12px;
+      border-radius:8px;
+      background: rgba(255,255,255,0.02);
+      font-size:14px;
+      word-break:break-all;
+    }
+    small.hint{display:block; margin-top:8px; color:var(--muted)}
+    .danger{color:#ff8b8b}
+    .flex-end{display:flex; justify-content:flex-end}
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-labelledby="title">
+    <h1 id="title">Custom URL Builder</h1>
+    <p style="margin:0 0 4px 0; color:var(--muted)">Build or paste a custom URL quickly. Create a redirect file, copy, or open it.</p>
+
+    <label for="mode">Mode</label>
+    <select id="mode" aria-label="mode">
+      <option value="build">Build from base + path</option>
+      <option value="full">Use full custom URL</option>
+    </select>
+
+    <div id="buildInputs">
+      <label for="base">Base URL (e.g. https://example.com)</label>
+      <input id="base" type="text" placeholder="https://example.com" value="https://example.com" />
+
+      <label for="path">Path / Slug (e.g. cool-stuff or /cool-stuff)</label>
+      <input id="path" type="text" placeholder="my-page or /my-page" />
+      <small class="hint">If path starts with <code>/</code> it will be appended; otherwise a slash will be added automatically.</small>
+    </div>
+
+    <div id="fullInput" style="display:none;">
+      <label for="full">Full URL</label>
+      <input id="full" type="text" placeholder="https://example.com/my-page" />
+    </div>
+
+    <label for="target">Open target</label>
+    <select id="target">
+      <option value="_blank">New tab/window (_blank)</option>
+      <option value="_self">Same tab (_self)</option>
+    </select>
+
+    <div class="controls">
+      <button id="buildBtn" class="primary">Preview URL</button>
+      <button id="copyBtn">Copy URL</button>
+      <button id="openBtn">Open</button>
+      <button id="downloadBtn">Download redirect .html</button>
+      <button id="clearBtn" title="Reset fields">Reset</button>
+    </div>
+
+    <div id="preview" class="preview" aria-live="polite">Preview will appear here.</div>
+    <small id="msg" class="hint" aria-hidden="false"></small>
+  </main>
+
+  <script>
+    const mode = document.getElementById('mode');
+    const base = document.getElementById('base');
+    const path = document.getElementById('path');
+    const full = document.getElementById('full');
+    const preview = document.getElementById('preview');
+    const msg = document.getElementById('msg');
+    const buildInputs = document.getElementById('buildInputs');
+    const fullInput = document.getElementById('fullInput');
+    const targetSelect = document.getElementById('target');
+
+    function normalizeUrl(u){
+      try{
+        // if it's a relative path, return null here
+        const parsed = new URL(u);
+        return parsed.href;
+      }catch(e){
+        return null;
+      }
+    }
+
+    function buildUrl(){
+      msg.textContent = '';
+      if(mode.value === 'full'){
+        const val = full.value.trim();
+        if(!val){ preview.textContent = 'Please enter a URL.'; return null; }
+        const normalized = normalizeUrl(val);
+        if(!normalized){
+          preview.innerHTML = '<span class="danger">Invalid URL — must include scheme (https://)</span>';
+          return null;
+        }
+        preview.textContent = normalized;
+        return normalized;
+      }else{
+        let b = base.value.trim();
+        let p = path.value.trim();
+        if(!b){ preview.textContent = 'Please enter a base URL.'; return null; }
+        const normalizedBase = normalizeUrl(b) || (normalizeUrl('https://' + b) ? normalizeUrl('https://' + b) : null);
+        if(!normalizedBase){
+          preview.innerHTML = '<span class="danger">Invalid base URL — include protocol (https://)</span>';
+          return null;
+        }
+        // trim slashes then combine
+        if(p === '') {
+          preview.textContent = normalizedBase;
+          return normalizedBase;
+        }
+        // if p looks like a full URL, normalize and return that
+        const fullCheck = normalizeUrl(p);
+        if(fullCheck){
+          preview.textContent = fullCheck;
+          return fullCheck;
+        }
+        // else append path
+        if(!p.startsWith('/')) p = '/' + p;
+        // remove trailing slash from base
+        const baseNoSlash = normalizedBase.endsWith('/') ? normalizedBase.slice(0,-1) : normalizedBase;
+        const combined = baseNoSlash + p;
+        preview.textContent = combined;
+        return combined;
+      }
+    }
+
+    document.getElementById('buildBtn').addEventListener('click', () => {
+      buildUrl();
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const url = buildUrl();
+      if(!url) return;
+      try{
+        await navigator.clipboard.writeText(url);
+        msg.textContent = 'Copied to clipboard ✔️';
+        setTimeout(()=> msg.textContent = '', 2200);
+      }catch(e){
+        msg.textContent = 'Could not copy automatically — select and copy the preview text.';
+      }
+    });
+
+    document.getElementById('openBtn').addEventListener('click', () => {
+      const url = buildUrl();
+      if(!url) return;
+      const target = targetSelect.value;
+      window.open(url, target);
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const url = buildUrl();
+      if(!url) return;
+      // simple HTML redirect file
+      const redirectHtml = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${escapeHtml(url)}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Redirecting...</title></head><body style="font-family:Arial,Helvetica,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#fafafa;color:#111"><div><p>Redirecting to <a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p><p>If your browser doesn't redirect automatically, click the link.</p></div></body></html>`;
+      const blob = new Blob([redirectHtml], {type:'text/html'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'redirect.html';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=> URL.revokeObjectURL(a.href), 5000);
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      base.value = 'https://example.com';
+      path.value = '';
+      full.value = '';
+      preview.textContent = 'Preview will appear here.';
+      msg.textContent = '';
+    });
+
+    mode.addEventListener('change', () => {
+      if(mode.value === 'full'){
+        buildInputs.style.display = 'none';
+        fullInput.style.display = 'block';
+      } else {
+        buildInputs.style.display = 'block';
+        fullInput.style.display = 'none';
+      }
+    });
+
+    // helper to escape HTML inside generated file
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; });
+    }
+
+    // preview as you type (small debounce)
+    let debounceTimer = null;
+    ['input','change'].forEach(evt=>{
+      document.querySelectorAll('input, select').forEach(el=>{
+        el.addEventListener(evt, ()=>{
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(()=> {
+            // only update preview if preview already has a URL or field changed
+            if(preview.textContent !== 'Preview will appear here.' && preview.textContent !== '' ){
+              buildUrl();
+            }
+          }, 350);
+        });
+      });
+    });
+
+    // initial preview
+    buildUrl();
+  </script>
+</body>
+</html>
